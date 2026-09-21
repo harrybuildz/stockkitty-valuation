@@ -6,11 +6,13 @@
  *
  * Economic Profit = NOPLAT - Capital Charge
  * NOPLAT = Earnings After Tax + After-tax Interest Expense
- * Capital Charge = Invested Capital × WACC
- * Invested Capital (projected) = NOPLAT / ROIC
+ * Capital Charge = beginning-of-year Invested Capital × WACC
+ * Invested Capital = balance-sheet IC (NPPE + NWC) rolled forward along the
+ *                    revenue growth glide path (VAL-2 — see comment below;
+ *                    the old NOPLAT/ROIC projection is gone and `roic` is
+ *                    no longer an input to this model)
  *
- * @param {object} inputs — same base inputs as FCF, plus:
- * @param {number}   inputs.roic   Return on Invested Capital (e.g. 0.1182)
+ * @param {object} inputs — same base inputs as FCF
  *
  * @returns {object} { firmValue, pricePerShare, wacc, projections }
  */
