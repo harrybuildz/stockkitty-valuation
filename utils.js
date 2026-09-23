@@ -55,6 +55,23 @@ export function projectRevenue(baseRevenue, salesGrowth, longTermGrowth, years =
 }
 
 /**
+ * Per-year OPERATING working capital (ASM-9): current assets minus cash,
+ * minus current liabilities. Cash in current assets made a growing cash pile
+ * read as working-capital consumption (ΔNWC drag on FCF) when it is capital
+ * accumulating — and EP's invested capital charged WACC rent on idle cash.
+ * Falls back to the cash-inclusive definition when the source has no
+ * per-year cash series. Mirrors backend valuation.operating_nwc.
+ */
+export function operatingNWC(inputs) {
+  const { currentAssets: ca, currentLiabilities: cl } = inputs
+  const cashS = inputs.cashSeries || []
+  if (cashS.length === ca.length) {
+    return ca.map((a, i) => a - cashS[i] - cl[i])
+  }
+  return ca.map((a, i) => a - cl[i])
+}
+
+/**
  * Equity value to use for WACC weights (ASM-4).
  *
  * Market equity when available — book equity made the debt weight balloon for

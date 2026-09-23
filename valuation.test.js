@@ -158,6 +158,33 @@ describe('Consensus hardening (ASM-5)', () => {
   })
 })
 
+describe('Operating NWC excludes cash (ASM-9)', () => {
+  it('a growing cash pile no longer reads as working-capital drag', () => {
+    // Cash grows $2M/yr inside currentAssets. With the series supplied, that
+    // accumulation is stripped from ΔNWC, so projected FCF (and value) rise.
+    const cashSeries = [2_000_000, 4_000_000, 6_000_000, 8_000_000]
+    const withSeries = runValuation({ ...spreadsheetInputs, cashSeries })
+    const without    = runValuation(spreadsheetInputs)
+    expect(withSeries.fcf.pricePerShare).toBeGreaterThan(without.fcf.pricePerShare)
+  })
+
+  it('falls back to the cash-inclusive definition when the series is absent or misaligned', () => {
+    const misaligned = runValuation({ ...spreadsheetInputs, cashSeries: [1, 2] })
+    const without    = runValuation(spreadsheetInputs)
+    expect(misaligned.fcf.pricePerShare).toBeCloseTo(without.fcf.pricePerShare, 6)
+    expect(misaligned.ep.pricePerShare).toBeCloseTo(without.ep.pricePerShare, 6)
+  })
+
+  it('EP charges no WACC rent on cash held in current assets', () => {
+    // Excluding latest-year cash shrinks invested capital -> smaller capital
+    // charge -> higher EP value (all else equal).
+    const cashSeries = [0, 0, 0, 5_000_000]
+    const withSeries = runValuation({ ...spreadsheetInputs, cashSeries })
+    const without    = runValuation(spreadsheetInputs)
+    expect(withSeries.ep.pricePerShare).toBeGreaterThan(without.ep.pricePerShare)
+  })
+})
+
 describe('WACC equity weights (ASM-4)', () => {
   const results = runValuation(spreadsheetInputs)
 

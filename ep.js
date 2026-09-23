@@ -17,7 +17,7 @@
  * @returns {object} { firmValue, pricePerShare, wacc, projections }
  */
 
-import { avgRatio, projectRevenue, growthPath, calcWACC, waccEquityWeight, pv, terminalValue } from './utils.js'
+import { avgRatio, projectRevenue, growthPath, calcWACC, waccEquityWeight, operatingNWC, pv, terminalValue } from './utils.js'
 
 export function epValuation(inputs) {
   const {
@@ -32,8 +32,10 @@ export function epValuation(inputs) {
   // Market-equity weights when marketCap is present (ASM-4) — see utils.js.
   const wacc = calcWACC({ debt, equity: waccEquityWeight(inputs), rd, rf, rm, beta, taxRate })
 
-  // Initial invested capital = NPPE + NWC (most recent year)
-  const latestNWC = currentAssets[currentAssets.length - 1] - currentLiabilities[currentLiabilities.length - 1]
+  // Initial invested capital = NPPE + operating NWC (most recent year; cash
+  // excluded when the per-year series is available — ASM-9, see utils.js).
+  const nwcSeries = operatingNWC(inputs)
+  const latestNWC = nwcSeries[nwcSeries.length - 1]
   const initialInvestedCapital = nppe + latestNWC
 
   // Average historical ratios
