@@ -113,6 +113,37 @@ describe('Valuation Engine', () => {
   })
 })
 
+describe('WACC equity weights (ASM-4)', () => {
+  const results = runValuation(spreadsheetInputs)
+
+  it('uses market cap for the equity weight when present', () => {
+    const marketCap = 200_000_000 // ~9× book equity
+    const r = runValuation({ ...spreadsheetInputs, marketCap })
+    const { debt, rd, rf, rm, beta, taxRate } = spreadsheetInputs
+    const total = debt + marketCap
+    const expected = (debt / total) * rd * (1 - taxRate)
+                   + (marketCap / total) * (rf + beta * (rm - rf))
+    expect(r.fcf.wacc).toBeCloseTo(expected, 6)
+    expect(r.ep.wacc).toBeCloseTo(expected, 6)
+    // Cost of equity (~14%) exceeds after-tax rd here, so a bigger equity
+    // weight must RAISE WACC vs the book-weight baseline.
+    expect(r.fcf.wacc).toBeGreaterThan(results.fcf.wacc)
+  })
+
+  it('falls back to book equity when marketCap is missing or zero', () => {
+    const r = runValuation({ ...spreadsheetInputs, marketCap: 0 })
+    expect(r.fcf.wacc).toBeCloseTo(results.fcf.wacc, 10)
+  })
+
+  it('keeps sane weights for negative book equity when marketCap is present', () => {
+    const r = runValuation({ ...spreadsheetInputs, equity: -1_000_000, marketCap: 200_000_000 })
+    // Book weights would give wd > 1 and a ~3% WACC; market weights keep the
+    // discount rate between after-tax rd and the cost of equity.
+    expect(r.fcf.wacc).toBeGreaterThan(0.09 * 0.65)
+    expect(r.fcf.wacc).toBeLessThan(0.04 + 1.69 * 0.06)
+  })
+})
+
 describe('Terminal value guard (VAL-5)', () => {
   it('returns 0 when the discount rate does not clear growth by >= 50 bps', () => {
     expect(terminalValue(100, 0.03, 0.032)).toBe(0)  // 20 bps spread

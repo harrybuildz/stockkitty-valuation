@@ -29,7 +29,7 @@
  * @returns {object} { firmValue, pricePerShare, wacc, projections }
  */
 
-import { avgRatio, projectRevenue, calcWACC, pv, terminalValue } from './utils.js'
+import { avgRatio, projectRevenue, calcWACC, waccEquityWeight, pv, terminalValue } from './utils.js'
 
 export function fcfValuation(inputs) {
   const {
@@ -41,7 +41,8 @@ export function fcfValuation(inputs) {
     interestExpense, capEx, currentAssets, currentLiabilities,
   } = inputs
 
-  const wacc = calcWACC({ debt, equity, rd, rf, rm, beta, taxRate })
+  // Market-equity weights when marketCap is present (ASM-4) — see utils.js.
+  const wacc = calcWACC({ debt, equity: waccEquityWeight(inputs), rd, rf, rm, beta, taxRate })
 
   // Historical NWC and changes
   const nwc = currentAssets.map((ca, i) => ca - currentLiabilities[i])

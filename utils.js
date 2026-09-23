@@ -55,6 +55,20 @@ export function projectRevenue(baseRevenue, salesGrowth, longTermGrowth, years =
 }
 
 /**
+ * Equity value to use for WACC weights (ASM-4).
+ *
+ * Market equity when available — book equity made the debt weight balloon for
+ * high-P/B companies (dragging WACC toward after-tax rd and inflating FCF/EP
+ * values) and went degenerate (>1/<0 weights) for buyback-shrunken negative
+ * book equity. Falls back to book equity only when market cap is missing.
+ * Mirrors backend valuation.wacc_equity_weight.
+ */
+export function waccEquityWeight(inputs) {
+  const mktCap = inputs.marketCap || 0
+  return mktCap > 0 ? mktCap : inputs.equity
+}
+
+/**
  * Calculate WACC.
  * Uses CAPM for cost of equity.
  */
