@@ -24,11 +24,13 @@ export function runValuation(inputs) {
   // are excluded too (ASM-5): >5× market price, tightened to 3× for a model
   // whose cost inputs the source flagged missing (mirrors the backend's
   // extreme_value / DAT-5 thresholds in valuation.detect_flags — keep in sync).
-  const market  = inputs.currentMarketPrice || 0
-  const missing = new Set(inputs.missingFields || [])
+  const market   = inputs.currentMarketPrice || 0
+  // Missing AND partially-reported cost lines both dilute the cost averages
+  // upward (DAT-5/DAT-6) — either tightens that model's bound.
+  const impaired = new Set([...(inputs.missingFields || []), ...(inputs.partialFields || [])])
   const extremeMult = {
-    FCF: missing.has('capEx') ? 3 : 5,
-    EP:  missing.has('depreciation') ? 3 : 5,
+    FCF: impaired.has('capEx') ? 3 : 5,
+    EP:  impaired.has('depreciation') ? 3 : 5,
     RE:  5,
   }
   const valid = [['FCF', fcf.pricePerShare], ['EP', ep.pricePerShare], ['RE', re.pricePerShare]]
