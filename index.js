@@ -19,15 +19,28 @@ export function runValuation(inputs) {
   const ep  = epValuation(inputs)
   const re  = reValuation(inputs)
 
-  const prices = [fcf.pricePerShare, ep.pricePerShare, re.pricePerShare]
   // Only positive model values enter the average — a negative value means a
-  // broken model and shouldn't drag the consensus down. This also matches the
-  // Python batch engine, which previously diverged by averaging all three here.
-  const valid = prices.filter((p) => p != null && p > 0)
+  // broken model and shouldn't drag the consensus down. Models judged extreme
+  // are excluded too (ASM-5): >5× market price, tightened to 3× for a model
+  // whose cost inputs the source flagged missing (mirrors the backend's
+  // extreme_value / DAT-5 thresholds in valuation.detect_flags — keep in sync).
+  const market  = inputs.currentMarketPrice || 0
+  const missing = new Set(inputs.missingFields || [])
+  const extremeMult = {
+    FCF: missing.has('capEx') ? 3 : 5,
+    EP:  missing.has('depreciation') ? 3 : 5,
+    RE:  5,
+  }
+  const valid = [['FCF', fcf.pricePerShare], ['EP', ep.pricePerShare], ['RE', re.pricePerShare]]
+    .filter(([name, p]) => p != null && p > 0
+      && !(market > 0 && p / market > extremeMult[name]))
+    .map(([, p]) => p)
   const avgPrice = valid.length ? valid.reduce((s, p) => s + p, 0) / valid.length : 0
 
-  const mos = inputs.currentMarketPrice
-    ? (avgPrice - inputs.currentMarketPrice) / inputs.currentMarketPrice
+  // No surviving model means "no consensus", not "worth $0" — MoS is unknown
+  // rather than −100%. Matches the Python engine.
+  const mos = market > 0 && valid.length
+    ? (avgPrice - market) / market
     : null
 
   // Model dispersion (VAL-7): relative spread of the averaged model values,

@@ -27,6 +27,13 @@ export function reValuation(inputs) {
 
   const re = calcCostOfEquity({ rf, rm, beta })
 
+  // Cap ROE at 40% (ASM-5, mirrors backend re_valuation). ROE is derived as
+  // average earnings / CURRENT book equity, so buyback-shrunken books produce
+  // 100%+ readings; book compounds at roe×(1−payout) below, so an uncapped ROE
+  // makes the model diverge. One-sided: low/negative ROE still expresses value
+  // destruction (VAL-3).
+  const roeCapped = Math.min(roe, 0.40)
+
   // Residual-income model, fully ROE-driven (VAL-3). Earnings = ROE × beginning
   // book value; book compounds by retained earnings (clean surplus); the
   // abnormal-earnings charge uses the SAME earnings that grow book. Previously
@@ -38,7 +45,7 @@ export function reValuation(inputs) {
   const years = []
   for (let i = 0; i < 10; i++) {
     const yr           = i + 1
-    const roeThisYear  = yr <= 5 ? roe : roe / 2    // fade in years 6-10
+    const roeThisYear  = yr <= 5 ? roeCapped : roeCapped / 2    // fade in years 6-10
     const bookValueBeg = bookValueEnd
     const earnings     = roeThisYear * bookValueBeg
     bookValueEnd       = bookValueBeg + (1 - payoutRatio) * earnings  // retained earnings

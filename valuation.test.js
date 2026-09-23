@@ -113,6 +113,51 @@ describe('Valuation Engine', () => {
   })
 })
 
+describe('Consensus hardening (ASM-5)', () => {
+  it('caps ROE at 40% so buyback-shrunken books cannot diverge the RE model', () => {
+    const capped  = runValuation({ ...spreadsheetInputs, roe: 0.40 })
+    const extreme = runValuation({ ...spreadsheetInputs, roe: 1.69 })
+    expect(extreme.re.pricePerShare).toBeCloseTo(capped.re.pricePerShare, 6)
+  })
+
+  it('the cap is one-sided — low ROE still expresses value destruction', () => {
+    const weak = runValuation({ ...spreadsheetInputs, roe: 0.02 })
+    const bookPerShare = spreadsheetInputs.equity / spreadsheetInputs.sharesOutstanding
+    expect(weak.re.pricePerShare).toBeLessThan(bookPerShare)
+  })
+
+  it('excludes a model >5× market price from the consensus average', () => {
+    // Price the market low enough that RE (~$45/share here) crosses 5× while
+    // FCF and EP stay under it after exclusion recompute.
+    const r = runValuation({ ...spreadsheetInputs, currentMarketPrice: 8 })
+    const models = [r.fcf.pricePerShare, r.ep.pricePerShare, r.re.pricePerShare]
+    const surviving = models.filter((p) => p > 0 && p / 8 <= 5)
+    expect(surviving.length).toBeLessThan(3)
+    if (surviving.length) {
+      const expected = surviving.reduce((s, p) => s + p, 0) / surviving.length
+      expect(r.summary.avgIntrinsicValue).toBeCloseTo(expected, 6)
+    } else {
+      expect(r.summary.marginOfSafety).toBeNull()
+    }
+  })
+
+  it('reports MoS as null (not −100%) when no model survives', () => {
+    // A tiny market price makes every positive model >5× — no consensus.
+    const r = runValuation({ ...spreadsheetInputs, currentMarketPrice: 0.01 })
+    expect(r.summary.marginOfSafety).toBeNull()
+  })
+
+  it('tightens the FCF threshold to 3× when capEx is a known data gap (DAT-5)', () => {
+    // At a market price between fcf/5 and fcf/3, FCF survives with clean data
+    // but is excluded once capEx is flagged missing.
+    const base = runValuation(spreadsheetInputs)
+    const price = base.fcf.pricePerShare / 4
+    const clean   = runValuation({ ...spreadsheetInputs, currentMarketPrice: price })
+    const gapped  = runValuation({ ...spreadsheetInputs, currentMarketPrice: price, missingFields: ['capEx'] })
+    expect(gapped.summary.avgIntrinsicValue).toBeLessThanOrEqual(clean.summary.avgIntrinsicValue)
+  })
+})
+
 describe('WACC equity weights (ASM-4)', () => {
   const results = runValuation(spreadsheetInputs)
 
