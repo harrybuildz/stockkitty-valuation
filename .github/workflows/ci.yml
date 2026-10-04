@@ -1,0 +1,28 @@
+name: CI
+
+# Runs the vitest suite on every PR and on pushes to main. The sub-repo has
+# no build step — ESM modules consumed directly — so test is the only signal.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test
+        run: npm test

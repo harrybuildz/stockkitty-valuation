@@ -70,4 +70,18 @@ export function runValuation(inputs) {
   }
 }
 
+// Barrel exports: one `import { X } from '@stockkitty/valuation'` covers every
+// public symbol in the package, so consumers don't thread subpaths. The three
+// per-model functions and every utils helper surface here.
 export { fcfValuation, epValuation, reValuation }
+export {
+  avgRatio,
+  growthPath,
+  projectRevenue,
+  operatingNWC,
+  waccEquityWeight,
+  calcWACC,
+  calcCostOfEquity,
+  pv,
+  terminalValue,
+} from './utils.js'
