@@ -18,6 +18,12 @@ Plus `index.js` → `runValuation()` which runs all three, averages the
 positive non-extreme intrinsic values, and reports margin of safety against
 `currentMarketPrice`.
 
+Also `assumptions.js`: `deriveAssumptions(financials)` seeds a company's
+starting assumptions from its financials response, and
+`buildValuationInputs(financials, assumptions)` merges them for
+`runValuation` (assumptions win, so user edits take effect). Both clients
+use these instead of their own copies.
+
 ## Install
 
 Consumed as a git dependency, pinned to a commit sha in the consumer's
@@ -40,6 +46,7 @@ import {
   runValuation,
   fcfValuation, epValuation, reValuation,
   calcWACC, calcCostOfEquity, pv, terminalValue, growthPath,
+  DEFAULT_ASSUMPTIONS, deriveAssumptions, buildValuationInputs,
 } from '@stockkitty/valuation'
 ```
 
