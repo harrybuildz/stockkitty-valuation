@@ -9,14 +9,16 @@
     "./fcf": "./fcf.js",
     "./ep": "./ep.js",
     "./re": "./re.js",
-    "./utils": "./utils.js"
+    "./utils": "./utils.js",
+    "./assumptions": "./assumptions.js"
   },
   "files": [
     "index.js",
     "fcf.js",
     "ep.js",
     "re.js",
-    "utils.js"
+    "utils.js",
+    "assumptions.js"
   ],
   "scripts": {
     "test": "vitest run"

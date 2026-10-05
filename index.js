@@ -85,3 +85,8 @@ export {
   pv,
   terminalValue,
 } from './utils.js'
+export {
+  DEFAULT_ASSUMPTIONS,
+  deriveAssumptions,
+  buildValuationInputs,
+} from './assumptions.js'
