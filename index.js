@@ -89,4 +89,5 @@ export {
   DEFAULT_ASSUMPTIONS,
   deriveAssumptions,
   buildValuationInputs,
+  netDepreciationFromCosts,
 } from './assumptions.js'

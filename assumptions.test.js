@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_ASSUMPTIONS, deriveAssumptions, buildValuationInputs, runValuation } from './index.js'
+import { DEFAULT_ASSUMPTIONS, deriveAssumptions, buildValuationInputs, runValuation, netDepreciationFromCosts } from './index.js'
 
 describe('deriveAssumptions', () => {
   it('falls back to defaults for an empty financials payload', () => {
@@ -73,5 +73,50 @@ describe('buildValuationInputs', () => {
     const before = runValuation(buildValuationInputs(financials, base)).summary.avgIntrinsicValue
     const after = runValuation(buildValuationInputs(financials, { ...base, beta: 1.0 })).summary.avgIntrinsicValue
     expect(after).not.toBeCloseTo(before, 2)
+  })
+})
+
+describe('netDepreciationFromCosts (COST-2)', () => {
+  const B = 1e9
+  // Walmart-shaped: D&A sits inside SG&A (opEx).
+  const wmt = {
+    source: 'edgar+yahoo',
+    revenue:       [611 * B, 648 * B, 681 * B],
+    costOfRevenue: [463 * B, 490 * B, 511 * B],
+    opEx:          [127 * B, 131 * B, 140 * B],
+    depreciation:  [ 11 * B,  12 * B,  13 * B],
+  }
+
+  it('takes D&A out of opEx, leaving implied EBIT unchanged', () => {
+    const { costOfRevenue, opEx } = netDepreciationFromCosts(wmt)
+    expect(opEx).toEqual([116 * B, 119 * B, 127 * B])
+    expect(costOfRevenue).toEqual(wmt.costOfRevenue)
+    wmt.revenue.forEach((r, i) => {
+      const before = r - wmt.costOfRevenue[i] - wmt.opEx[i]
+      const after = r - costOfRevenue[i] - opEx[i] - wmt.depreciation[i]
+      expect(after).toBeCloseTo(before, 0)
+    })
+  })
+
+  it('spills D&A larger than opEx into cost of revenue', () => {
+    const r = netDepreciationFromCosts({
+      source: 'edgar', costOfRevenue: [70], opEx: [10], depreciation: [15],
+    })
+    expect(r.opEx).toEqual([0])
+    expect(r.costOfRevenue).toEqual([65])
+  })
+
+  it('leaves years without D&A alone and does not mutate the input', () => {
+    const fin = { source: 'edgar', costOfRevenue: [50, 50], opEx: [20, 20], depreciation: [0, 5] }
+    const r = netDepreciationFromCosts(fin)
+    expect(r.opEx).toEqual([20, 15])
+    expect(fin.opEx).toEqual([20, 20])
+  })
+
+  it('is applied by buildValuationInputs only for EDGAR-sourced financials', () => {
+    expect(buildValuationInputs(wmt, {}).opEx).toEqual([116 * B, 119 * B, 127 * B])
+    const yahoo = { ...wmt, source: 'yahoo' }
+    expect(buildValuationInputs(yahoo, {}).opEx).toEqual(yahoo.opEx)
+    expect(buildValuationInputs({ revenue: [1] }, {}).opEx).toBeUndefined()
   })
 })
