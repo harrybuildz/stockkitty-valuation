@@ -63,6 +63,43 @@ export function deriveAssumptions(financials) {
 }
 
 /**
+ * Depreciation out of the cost lines (COST-2). The models compute
+ * EBT = revenue − costOfRevenue − opEx − depreciation − interest (the course
+ * spreadsheet's layout, where opEx excludes D&A). Costs built from SEC
+ * filings include D&A — stockkitty derives opEx as revenue − cost of revenue
+ * − operating income, and operating income is after D&A — so feeding them in
+ * as-is subtracts D&A twice. Per year, D&A comes out of opEx first (down to
+ * 0), then out of cost of revenue (manufacturers carry it in COGS), so
+ * revenue − C − O − D still equals the company's reported operating income.
+ *
+ * Only for EDGAR-sourced financials (source "edgar…"): other providers'
+ * cost conventions aren't verified, and netting where D&A is NOT embedded
+ * would overstate value. Mirrors backend batch/runner
+ * net_depreciation_from_costs — keep the two identical.
+ *
+ * @returns {{ costOfRevenue: number[], opEx: number[] }}
+ */
+export function netDepreciationFromCosts(financials) {
+  const cor = financials.costOfRevenue || []
+  const opex = financials.opEx || []
+  const dep = financials.depreciation || []
+  const outC = [...cor]
+  const outO = [...opex]
+  if (!String(financials.source || '').startsWith('edgar')) return { costOfRevenue: outC, opEx: outO }
+  for (let i = 0; i < Math.min(outO.length, dep.length); i++) {
+    const d = dep[i]
+    if (!(d > 0)) continue
+    const fromOpex = Math.min(d, Math.max(outO[i] || 0, 0))
+    outO[i] = (outO[i] || 0) - fromOpex
+    const rest = d - fromOpex
+    if (rest > 0 && i < outC.length) {
+      outC[i] = (outC[i] || 0) - Math.min(rest, Math.max(outC[i] || 0, 0))
+    }
+  }
+  return { costOfRevenue: outC, opEx: outO }
+}
+
+/**
  * Inputs for runValuation. Assumptions are spread LAST: they overlap the
  * financials on beta / roe / roic / payoutRatio (deriveAssumptions seeds them
  * from the financials), and the user's edits must win over the raw fetched
@@ -71,6 +108,8 @@ export function deriveAssumptions(financials) {
 export function buildValuationInputs(financials, assumptions) {
   return {
     ...financials,
+    // EDGAR-sourced costs include D&A; take it out once (COST-2).
+    ...(String(financials.source || '').startsWith('edgar') ? netDepreciationFromCosts(financials) : {}),
     ...assumptions,
     sharesOutstanding:  financials.sharesOutstanding,
     currentMarketPrice: financials.currentMarketPrice,
