@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_ASSUMPTIONS, deriveAssumptions, buildValuationInputs, runValuation, netDepreciationFromCosts } from './index.js'
+import { DEFAULT_ASSUMPTIONS, deriveAssumptions, buildValuationInputs, runValuation, netDepreciationFromCosts, costsEmbedDepreciation } from './index.js'
 
 describe('deriveAssumptions', () => {
   it('falls back to defaults for an empty financials payload', () => {
@@ -113,10 +113,25 @@ describe('netDepreciationFromCosts (COST-2)', () => {
     expect(fin.opEx).toEqual([20, 20])
   })
 
-  it('is applied by buildValuationInputs only for EDGAR-sourced financials', () => {
+  it('is applied by buildValuationInputs for EDGAR- and Yahoo-sourced financials', () => {
     expect(buildValuationInputs(wmt, {}).opEx).toEqual([116 * B, 119 * B, 127 * B])
-    const yahoo = { ...wmt, source: 'yahoo' }
-    expect(buildValuationInputs(yahoo, {}).opEx).toEqual(yahoo.opEx)
+    expect(buildValuationInputs({ ...wmt, source: 'yahoo' }, {}).opEx).toEqual([116 * B, 119 * B, 127 * B])
     expect(buildValuationInputs({ revenue: [1] }, {}).opEx).toBeUndefined()
+  })
+
+  it('leaves Polygon and unlabelled sources untouched', () => {
+    for (const source of ['polygon', undefined, '', 'yahoo-legacy']) {
+      const fin = { ...wmt, source }
+      expect(buildValuationInputs(fin, {}).opEx).toEqual(wmt.opEx)
+      expect(netDepreciationFromCosts(fin).opEx).toEqual(wmt.opEx)
+    }
+    expect(costsEmbedDepreciation('edgar+polygon')).toBe(true)
+    expect(costsEmbedDepreciation('yahoo')).toBe(true)
+    expect(costsEmbedDepreciation('polygon')).toBe(false)
+  })
+
+  it('is a no-op for banks with no cost lines (Yahoo reports none)', () => {
+    const bank = { source: 'yahoo', costOfRevenue: [0, 0], opEx: [0, 0], depreciation: [4, 8] }
+    expect(netDepreciationFromCosts(bank)).toEqual({ costOfRevenue: [0, 0], opEx: [0, 0] })
   })
 })
