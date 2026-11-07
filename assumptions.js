@@ -72,20 +72,29 @@ export function deriveAssumptions(financials) {
  * 0), then out of cost of revenue (manufacturers carry it in COGS), so
  * revenue − C − O − D still equals the company's reported operating income.
  *
- * Only for EDGAR-sourced financials (source "edgar…"): other providers'
- * cost conventions aren't verified, and netting where D&A is NOT embedded
- * would overstate value. Mirrors backend batch/runner
- * net_depreciation_from_costs — keep the two identical.
+ * Applies to EDGAR-sourced financials (source "edgar…") and to Yahoo
+ * ("yahoo"): stockkitty's scripts/check_yahoo_da found Yahoo's cost of
+ * revenue + opEx reconcile to its own operating income with D&A inside
+ * them (29/29 classifiable companies, 0 with D&A outside; 2026-11-07).
+ * Polygon and unlabelled rows stay untouched — their conventions aren't
+ * verified, and netting where D&A is NOT embedded would overstate value.
+ * Mirrors backend batch/runner net_depreciation_from_costs — keep the two
+ * identical.
  *
  * @returns {{ costOfRevenue: number[], opEx: number[] }}
  */
+export function costsEmbedDepreciation(source) {
+  const s = String(source || '')
+  return s.startsWith('edgar') || s === 'yahoo'
+}
+
 export function netDepreciationFromCosts(financials) {
   const cor = financials.costOfRevenue || []
   const opex = financials.opEx || []
   const dep = financials.depreciation || []
   const outC = [...cor]
   const outO = [...opex]
-  if (!String(financials.source || '').startsWith('edgar')) return { costOfRevenue: outC, opEx: outO }
+  if (!costsEmbedDepreciation(financials.source)) return { costOfRevenue: outC, opEx: outO }
   for (let i = 0; i < Math.min(outO.length, dep.length); i++) {
     const d = dep[i]
     if (!(d > 0)) continue
@@ -108,8 +117,8 @@ export function netDepreciationFromCosts(financials) {
 export function buildValuationInputs(financials, assumptions) {
   return {
     ...financials,
-    // EDGAR-sourced costs include D&A; take it out once (COST-2).
-    ...(String(financials.source || '').startsWith('edgar') ? netDepreciationFromCosts(financials) : {}),
+    // EDGAR- and Yahoo-sourced costs include D&A; take it out once (COST-2).
+    ...(costsEmbedDepreciation(financials.source) ? netDepreciationFromCosts(financials) : {}),
     ...assumptions,
     sharesOutstanding:  financials.sharesOutstanding,
     currentMarketPrice: financials.currentMarketPrice,
